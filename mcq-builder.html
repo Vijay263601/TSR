@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MCQ Builder</title>
+  <style>
+    body { font-family: Arial; padding: 30px; }
+    input, textarea, select, button {
+      width: 400px;
+      padding: 10px;
+      margin: 6px 0;
+      display: block;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Add MCQ Question</h2>
+
+<input id="examId" placeholder="Exam ID (EXAM_...)">
+
+<textarea id="question" placeholder="Question"></textarea>
+
+<input id="a" placeholder="Option A">
+<input id="b" placeholder="Option B">
+<input id="c" placeholder="Option C">
+<input id="d" placeholder="Option D">
+
+<select id="correct">
+  <option value="">Select Correct Answer</option>
+  <option value="A">Option A</option>
+  <option value="B">Option B</option>
+  <option value="C">Option C</option>
+  <option value="D">Option D</option>
+</select>
+
+<button onclick="addQuestion()">Add Question</button>
+
+<p id="status"></p>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbx1tYQiWIeddqMwx6EMDCPugSqIVHxu78Ef5QrDn1sY01QeEAuqcyplKfmspSZP6Dr00w/exec";
+
+function addQuestion() {
+  const qid = "Q_" + Date.now();
+
+  const data = {
+    type: "ADD_QUESTION",
+    examId: examId.value,
+    qid: qid,
+    question: question.value,
+    a: a.value,
+    b: b.value,
+    c: c.value,
+    d: d.value,
+    correct: correct.value
+  };
+
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify(data)
+  })
+  .then(() => {
+    status.innerHTML = "✅ Question added successfully";
+    question.value = a.value = b.value = c.value = d.value = "";
+    correct.value = "";
+  });
+}
+</script>
+
+</body>
+</html>
