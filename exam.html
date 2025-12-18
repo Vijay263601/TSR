@@ -1,36 +1,215 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Online Exam</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{font-family:Arial;background:#f1f5f9;padding:20px}
+.container{max-width:800px;margin:auto;background:#fff;padding:25px;border-radius:12px}
+.hidden{display:none}
+input{width:100%;padding:12px;margin:8px 0}
+.option{border:1px solid #ccc;padding:12px;margin:8px 0;cursor:pointer;border-radius:6px}
+.option.selected{background:#2563eb;color:#fff}
+button{padding:10px 16px;margin-top:10px}
+button:disabled{background:#ccc;cursor:not-allowed}
+.timer{color:red;font-weight:bold}
+</style>
+</head>
+
 <body>
 
-<h2>Exam</h2>
-<div id="q"></div> 
-<div id="opts"></div>
-<button onclick="next()">Next</button>
+<!-- STUDENT DETAILS -->
+<div class="container" id="studentForm">
+  <h2>Student Details</h2>
+  <p><b>⚠ Fullscreen required. Switching apps, split screen or exit fullscreen will terminate exam.</b></p>
+  <input id="nameInput" placeholder="Full Name">
+  <input id="emailInput" type="email" placeholder="Email">
+  <input id="rollInput" placeholder="Roll Number">
+  <button id="startBtn" disabled onclick="startExam()">Start Exam</button>
+</div>
+
+<!-- EXAM PAGE -->
+<div class="container hidden" id="examPage">
+  <div>
+    Exam ID: <span id="examIdText"></span>
+    <span class="timer" id="timer"></span>
+  </div>
+  <h3 id="questionText"></h3>
+  <div id="options"></div>
+  <button onclick="prev()">Previous</button>
+  <button onclick="next()">Next</button>
+  <button onclick="submitExam()">Submit</button>
+</div>
 
 <script>
-const API_URL="https://script.google.com/macros/s/AKfycbx2s8YFuy5Vrkzuh20cOLrNe7C4c3xsTVNTofJAxHp0ALfdXrRSVOvNMR3FH0tj4vdyhg/exec";
-const examId=new URLSearchParams(location.search).get("examId");
-let qs=[],i=0,ans={};
+/* CONFIG */
+const API_URL = "https://script.google.com/macros/s/AKfycbx2s8YFuy5Vrkzuh20cOLrNe7C4c3xsTVNTofJAxHp0ALfdXrRSVOvNMR3FH0tj4vdyhg/exec";
 
-fetch(API_URL,{
-  method:"POST",
-  headers:{ "Content-Type":"application/json" },
-  body:JSON.stringify({type:"GET_QUESTIONS",examId})
-})
-.then(r=>r.json())
-.then(d=>{qs=d;render();});
+/* DOM */
+const examId = new URLSearchParams(location.search).get("examId");
+examIdText.textContent = examId;
 
-function render(){
-  q.textContent=qs[i].question;
-  opts.innerHTML="";
-  ["A","B","C","D"].forEach(o=>{
-    const b=document.createElement("button");
-    b.textContent=qs[i][o];
-    b.onclick=()=>{ans[qs[i].qid]=o};
-    opts.appendChild(b);
+const studentForm = document.getElementById("studentForm");
+const examPage = document.getElementById("examPage");
+const nameInput = document.getElementById("nameInput");
+const emailInput = document.getElementById("emailInput");
+const rollInput = document.getElementById("rollInput");
+const startBtn = document.getElementById("startBtn");
+const questionText = document.getElementById("questionText");
+const optionsDiv = document.getElementById("options");
+const timerEl = document.getElementById("timer");
+
+/* STATE */
+let questions=[], answers={}, current=0;
+let duration=0, MAX_TAB_SWITCH=2;
+let tabSwitch=0;
+let cheated=false, cheatReason="";
+let examStarted=false;   // 🔑 FIX
+let examFinished=false;
+let startTime, timerInterval;
+let w0=0, h0=0;
+
+/* ENABLE START BUTTON */
+function validateDetails(){
+  startBtn.disabled = !(
+    nameInput.value.trim() &&
+    emailInput.value.trim() &&
+    rollInput.value.trim()
+  );
+}
+[nameInput,emailInput,rollInput].forEach(i=>i.addEventListener("input",validateDetails));
+
+/* FULLSCREEN */
+function enterFullscreen(){
+  return document.documentElement.requestFullscreen?.();
+}
+
+/* START EXAM */
+async function startExam(){
+  try {
+    await enterFullscreen();
+  } catch {
+    alert("Fullscreen permission required");
+    return;
+  }
+
+  // 🔑 exam officially starts HERE
+  examStarted = true;
+
+  studentForm.classList.add("hidden");
+  examPage.classList.remove("hidden");
+
+  w0 = innerWidth;
+  h0 = innerHeight;
+
+  const [cfg, qs] = await Promise.all([
+    fetch(API_URL,{method:"POST",body:JSON.stringify({type:"GET_EXAM_CONFIG",examId})}).then(r=>r.json()),
+    fetch(API_URL,{method:"POST",body:JSON.stringify({type:"GET_QUESTIONS",examId})}).then(r=>r.json())
+  ]);
+
+  duration = cfg.duration;
+  MAX_TAB_SWITCH = cfg.maxTabSwitch;
+  questions = qs;
+
+  startTime = Date.now();
+  renderQuestion();
+  startTimer();
+}
+
+/* RENDER */
+function renderQuestion(){
+  const q = questions[current];
+  if(!q) return;
+  questionText.textContent = `Q${current+1}. ${q.question}`;
+  optionsDiv.innerHTML="";
+  ["A","B","C","D"].forEach(opt=>{
+    const d=document.createElement("div");
+    d.className="option"+(answers[q.qid]===opt?" selected":"");
+    d.textContent=q[opt];
+    d.onclick=()=>{answers[q.qid]=opt;renderQuestion();}
+    optionsDiv.appendChild(d);
   });
 }
-function next(){ if(i<qs.length-1){i++;render();} }
+
+/* NAV */
+function next(){
+  if(!answers[questions[current].qid]){
+    alert("Please select an answer");
+    return;
+  }
+  if(current<questions.length-1){current++;renderQuestion();}
+}
+function prev(){ if(current>0){current--;renderQuestion();} }
+
+/* TIMER */
+function startTimer(){
+  let t=duration*60;
+  timerInterval=setInterval(()=>{
+    timerEl.textContent=` | ${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`;
+    if(--t<0){cheatReason="Time up";submitExam();}
+  },1000);
+}
+
+/* ===== ANTI-CHEAT (ONLY AFTER EXAM STARTS) ===== */
+document.addEventListener("fullscreenchange",()=>{
+  if(!examStarted || examFinished) return;
+  if(!document.fullscreenElement){
+    cheated=true; cheatReason="Exited fullscreen";
+    submitExam();
+  }
+});
+
+document.addEventListener("visibilitychange",()=>{
+  if(!examStarted || examFinished || !document.hidden) return;
+  if(++tabSwitch > MAX_TAB_SWITCH){
+    cheated=true; cheatReason="Tab switch";
+    submitExam();
+  }
+});
+
+window.addEventListener("resize",()=>{
+  if(!examStarted || examFinished) return;
+  if(Math.abs(innerWidth-w0)>100 || Math.abs(innerHeight-h0)>100){
+    cheated=true; cheatReason="Split screen detected";
+    submitExam();
+  }
+});
+
+/* SUBMIT */
+function submitExam(){
+  if(!examStarted || examFinished) return;
+
+  for(let i=0;i<questions.length;i++){
+    if(!answers[questions[i].qid]){
+      alert(`Question ${i+1} not answered`);
+      current=i;
+      renderQuestion();
+      return;
+    }
+  }
+
+  examFinished=true;
+  clearInterval(timerInterval);
+
+  fetch(API_URL,{
+    method:"POST",
+    body:JSON.stringify({
+      type:"SUBMIT_RESPONSE",
+      examId,
+      studentName:nameInput.value,
+      roll:rollInput.value,
+      email:emailInput.value,
+      cheated, cheatReason,
+      timeTaken:Math.floor((Date.now()-startTime)/1000),
+      answers:Object.keys(answers).map(qid=>({qid,answer:answers[qid]}))
+    })
+  }).then(()=>{
+    document.body.innerHTML="<h2 style='text-align:center'>Exam Submitted Successfully</h2>";
+    document.exitFullscreen?.();
+  });
+}
 </script>
 
 </body>
