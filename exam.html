@@ -8,12 +8,17 @@
 <button onclick="next()">Next</button>
 
 <script>
-const API_URL="https://script.google.com/macros/s/AKfycbxYWR5EYzUh6zyYsrKT7fP9PULQmReOOj69mqkOqz3SktwOtFzLAKxyygRbAfGdota3mg/exec";
+const API_URL="https://script.google.com/macros/s/AKfycbyZkAt1XgV91iaFu4aFUJ_YGMLK4k3J5nX0oDcN_aauEQMJojmkkKxEm-KxZ4tI1h6BsQ/exec";
 const examId=new URLSearchParams(location.search).get("examId");
 let qs=[],i=0,ans={};
 
-fetch(API_URL,{method:"POST",body:JSON.stringify({type:"GET_QUESTIONS",examId})})
-.then(r=>r.json()).then(d=>{qs=d;render();});
+fetch(API_URL,{
+  method:"POST",
+  headers:{ "Content-Type":"application/json" },
+  body:JSON.stringify({type:"GET_QUESTIONS",examId})
+})
+.then(r=>r.json())
+.then(d=>{qs=d;render();});
 
 function render(){
   q.textContent=qs[i].question;
