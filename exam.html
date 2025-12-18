@@ -14,9 +14,9 @@
   }
 
   .container {
-    max-width: 800px;
+    max-width: 850px;
     margin: auto;
-    background: white;
+    background: #ffffff;
     padding: 25px;
     border-radius: 12px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.08);
@@ -26,10 +26,10 @@
     display: flex;
     justify-content: space-between;
     margin-bottom: 20px;
+    font-weight: 600;
   }
 
   .timer {
-    font-weight: 700;
     color: #dc2626;
   }
 
@@ -52,9 +52,12 @@
     color: white;
   }
 
+  .buttons {
+    margin-top: 20px;
+  }
+
   button {
     padding: 12px 20px;
-    margin-top: 20px;
     border: none;
     border-radius: 8px;
     background: #2563eb;
@@ -74,15 +77,14 @@
 
 <div class="container">
   <div class="topbar">
-    <div><b>Exam:</b> <span id="examIdText"></span></div>
-    <div class="timer" id="timer">00:00</div>
+    <div>Exam ID: <span id="examIdText"></span></div>
+    <div class="timer" id="timer">Loading...</div>
   </div>
 
-  <div class="question" id="questionText">Loading...</div>
-
+  <div class="question" id="questionText">Loading questions...</div>
   <div id="options"></div>
 
-  <div>
+  <div class="buttons">
     <button class="secondary" onclick="prev()">Previous</button>
     <button onclick="next()">Next</button>
     <button onclick="submitExam()">Submit</button>
@@ -92,22 +94,25 @@
 <script>
 /* ================= CONFIG ================= */
 const API_URL = "https://script.google.com/macros/s/AKfycbxx_99ST7zyPXUz6I3DLJfcMeUCJgYMQMGww_KadIlwJASSNHJSf4bUknM_2Vz1DD_45g/exec";
-const MAX_TAB_SWITCH = 2;
-const EXAM_DURATION_MINUTES = 30;
 /* ========================================= */
 
-const urlParams = new URLSearchParams(window.location.search);
-const examId = urlParams.get("examId");
+const params = new URLSearchParams(window.location.search);
+const examId = params.get("examId");
 
 document.getElementById("examIdText").innerText = examId;
 
+/* ---------- STATE ---------- */
 let questions = [];
 let current = 0;
 let answers = {};
 let cheated = false;
 let tabSwitches = 0;
 
-/* ---------- Anti Cheat ---------- */
+let EXAM_DURATION_MINUTES = 0;
+let MAX_TAB_SWITCH = 2;
+let timerInterval;
+
+/* ---------- Anti-Cheat ---------- */
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     tabSwitches++;
@@ -119,34 +124,58 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-/* ---------- Timer ---------- */
-let timeLeft = EXAM_DURATION_MINUTES * 60;
-const timerInterval = setInterval(() => {
-  const m = Math.floor(timeLeft / 60);
-  const s = timeLeft % 60;
-  document.getElementById("timer").innerText =
-    `${m}:${s < 10 ? "0" : ""}${s}`;
-  timeLeft--;
+/* ---------- Load Exam Config ---------- */
+function loadExamConfig() {
+  return fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      type: "GET_EXAM_CONFIG",
+      examId: examId
+    })
+  })
+  .then(res => res.json())
+  .then(cfg => {
+    EXAM_DURATION_MINUTES = cfg.duration;
+    MAX_TAB_SWITCH = cfg.maxTabSwitch;
+  });
+}
 
-  if (timeLeft < 0) {
-    alert("Time up! Submitting exam.");
-    submitExam();
-  }
-}, 1000);
+/* ---------- Start Timer ---------- */
+function startTimer() {
+  let timeLeft = EXAM_DURATION_MINUTES * 60;
+
+  timerInterval = setInterval(() => {
+    const m = Math.floor(timeLeft / 60);
+    const s = timeLeft % 60;
+
+    document.getElementById("timer").innerText =
+      `${m}:${s < 10 ? "0" : ""}${s}`;
+
+    timeLeft--;
+
+    if (timeLeft < 0) {
+      clearInterval(timerInterval);
+      alert("Time up! Submitting exam.");
+      submitExam();
+    }
+  }, 1000);
+}
 
 /* ---------- Load Questions ---------- */
-fetch(API_URL, {
-  method: "POST",
-  body: JSON.stringify({
-    type: "GET_QUESTIONS",
-    examId: examId
+function loadQuestions() {
+  return fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      type: "GET_QUESTIONS",
+      examId: examId
+    })
   })
-})
-.then(res => res.json())
-.then(data => {
-  questions = data;
-  showQuestion();
-});
+  .then(res => res.json())
+  .then(data => {
+    questions = data;
+    showQuestion();
+  });
+}
 
 /* ---------- Render Question ---------- */
 function showQuestion() {
@@ -163,7 +192,10 @@ function showQuestion() {
     const div = document.createElement("div");
     div.className = "option";
     div.innerText = q[opt];
-    if (answers[q.qid] === opt) div.classList.add("selected");
+
+    if (answers[q.qid] === opt) {
+      div.classList.add("selected");
+    }
 
     div.onclick = () => {
       answers[q.qid] = opt;
@@ -174,6 +206,7 @@ function showQuestion() {
   });
 }
 
+/* ---------- Navigation ---------- */
 function next() {
   if (current < questions.length - 1) {
     current++;
@@ -212,6 +245,11 @@ function submitExam() {
       "<h2 style='text-align:center'>Exam submitted successfully</h2>";
   });
 }
+
+/* ---------- INIT ---------- */
+loadExamConfig()
+  .then(loadQuestions)
+  .then(startTimer);
 </script>
 
 </body>
