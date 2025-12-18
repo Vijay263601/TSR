@@ -2,31 +2,50 @@
 <html>
 <body>
 
-<button onclick="test()">Create Exam</button>  
-<pre id="out"></pre>
+<h2>Create Exam</h2>
+
+<input id="teacher" placeholder="Teacher Email"><br>
+<input id="name" placeholder="Exam Name"><br>
+<input id="duration" type="number" placeholder="Duration (minutes)"><br>
+
+<button onclick="createExam()">Create Exam</button>
+
+<p id="out"></p>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycby8gFwSWA5IAQer9EfKCCaPOe3PzvTDFtKr_EpgAPkJ9qzK0R9-LIoye36UrGE9xCxpdA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyZkAt1XgV91iaFu4aFUJ_YGMLK4k3J5nX0oDcN_aauEQMJojmkkKxEm-KxZ4tI1h6BsQ/exec";
 
-function test() {
-  fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify({
-      type: "CREATE_EXAM",
-      examId: "TEST_" + Date.now()
+function createExam(){
+  const examId = "EXAM_" + Date.now();
+
+  fetch(API_URL,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      type:"CREATE_EXAM",
+      examId,
+      teacher:teacher.value,
+      examName:name.value,
+      duration:duration.value,
+      maxTabSwitch:2
     })
   })
-  .then(r => r.json())
-  .then(res => {
-    out.textContent = JSON.stringify(res, null, 2);
-  })
-  .catch(err => {
-    out.textContent = err.toString();
+  .then(r=>r.json())
+  .then(res=>{
+    if(res.status==="EXAM_CREATED"){
+      localStorage.setItem("EXAM_ID",examId);
+      out.innerHTML =
+        "✅ Exam Created<br><br>" +
+        "<b>Exam ID:</b> "+examId+"<br><br>" +
+        "<a href='mcq-builder.html'>➕ Add Questions</a><br><br>" +
+        "<b>Student Link:</b><br>" +
+        "exam.html?examId="+examId;
+    } else {
+      out.textContent="❌ Error creating exam";
+    }
   });
 }
 </script>
 
 </body>
 </html>
-
-
