@@ -4,7 +4,8 @@
   <title>Teacher Exam Generator</title>
   <style>
     body { font-family: Arial; padding: 30px; }
-    input, button { padding: 10px; margin: 8px 0; width: 300px; }
+    input, button { padding: 10px; margin: 8px 0; width: 320px; }
+    button { cursor: pointer; }
   </style>
 </head>
 
@@ -14,28 +15,35 @@
 
 <input id="teacherEmail" placeholder="Teacher Email"><br>
 <input id="examName" placeholder="Exam Name"><br>
-<input id="duration" placeholder="Duration (minutes)"><br>
+<input id="duration" type="number" placeholder="Duration (minutes)"><br>
 
 <button onclick="createExam()">Create Exam</button>
 
-  <a href="mcq-builder.html">
+<br><br>
+
+<a href="mcq-builder.html">
   <button>Open MCQ Builder</button>
 </a>
 
 <p id="result"></p>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbx1tYQiWIeddqMwx6EMDCPugSqIVHxu78Ef5QrDn1sY01QeEAuqcyplKfmspSZP6Dr00w/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycby24EphyIqV8uUky66ouA-Q-4Pnuhzdf2kFb1_vWEuyLClZEFAMlcT1enU-tTon61JL6w/exec";
 
 function createExam() {
+  if (!teacherEmail.value || !examName.value || !duration.value) {
+    alert("Please fill all fields");
+    return;
+  }
+
   const examId = "EXAM_" + Date.now();
 
   const data = {
     type: "CREATE_EXAM",
-    examId: examId,
-    teacher: document.getElementById("teacherEmail").value,
-    examName: document.getElementById("examName").value,
-    duration: document.getElementById("duration").value,
+    examId,
+    teacher: teacherEmail.value,
+    examName: examName.value,
+    duration: Number(duration.value),
     maxTabSwitch: 2
   };
 
@@ -43,15 +51,25 @@ function createExam() {
     method: "POST",
     body: JSON.stringify(data)
   })
-  .then(() => {
+  .then(r => r.json())
+  .then(res => {
+    if (res.status !== "EXAM_CREATED") {
+      alert("Error creating exam");
+      return;
+    }
+
+    // ✅ Store examId for MCQ builder
+    localStorage.setItem("CURRENT_EXAM_ID", examId);
+
     document.getElementById("result").innerHTML =
-      "✅ Exam Created!<br><br>" +
+      "✅ Exam Created Successfully<br><br>" +
+      "<b>Exam ID:</b> " + examId + "<br><br>" +
       "Student Exam Link:<br>" +
       `<b>exam.html?examId=${examId}</b>`;
-  });
+  })
+  .catch(() => alert("Network error"));
 }
 </script>
 
 </body>
 </html>
-
