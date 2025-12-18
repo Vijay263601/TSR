@@ -105,7 +105,7 @@ async function startExam(){
   h0 = innerHeight;
 
   const [cfg, qs] = await Promise.all([
-    fetch(API_URL,{method:"POST",body:JSON.stringify({type:"GET_EXAM_CONFIG",examId})}).then(r=>r.json()),
+    fetch(API_URL,{   method:"POST",   headers:{ "Content-Type":"application/json" },   body:JSON.stringify({ type:"GET_EXAM_CONFIG", examId }) })  fetch(API_URL,{   method:"POST",   headers:{ "Content-Type":"application/json" },   body:JSON.stringify({ type:"GET_QUESTIONS", examId }) }).then(r=>r.json()),
     fetch(API_URL,{method:"POST",body:JSON.stringify({type:"GET_QUESTIONS",examId})}).then(r=>r.json())
   ]);
 
@@ -193,19 +193,26 @@ function submitExam(){
   examFinished=true;
   clearInterval(timerInterval);
 
-  fetch(API_URL,{
-    method:"POST",
-    body:JSON.stringify({
-      type:"SUBMIT_RESPONSE",
-      examId,
-      studentName:nameInput.value,
-      roll:rollInput.value,
-      email:emailInput.value,
-      cheated, cheatReason,
-      timeTaken:Math.floor((Date.now()-startTime)/1000),
-      answers:Object.keys(answers).map(qid=>({qid,answer:answers[qid]}))
-    })
-  }).then(()=>{
+fetch(API_URL,{
+  method:"POST",
+  headers:{
+    "Content-Type":"application/json"
+  },
+  body:JSON.stringify({
+    type:"SUBMIT_RESPONSE",
+    examId: examId,
+    studentName: nameInput.value,
+    roll: rollInput.value,
+    email: emailInput.value,
+    cheated: cheated,
+    cheatReason: cheatReason,
+    timeTaken: Math.floor((Date.now()-startTime)/1000),
+    answers: Object.keys(answers).map(qid => ({
+      qid: qid,
+      answer: answers[qid]
+    }))
+  })
+}).then(()=>{
     document.body.innerHTML="<h2 style='text-align:center'>Exam Submitted Successfully</h2>";
     document.exitFullscreen?.();
   });
