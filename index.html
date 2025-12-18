@@ -18,66 +18,35 @@
 
 <button onclick="createExam()">Create Exam</button>
 
-<a href="mcq-builder.html">
-  <button>Open MCQ Builder</button>
-</a>
-
 <p id="result"></p>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbx2s8YFuy5Vrkzuh20cOLrNe7C4c3xsTVNTofJAxHp0ALfdXrRSVOvNMR3FH0tj4vdyhg/exec";
 
 function createExam() {
-  if (!teacherEmail.value || !examName.value || !duration.value) {
-    alert("Please fill all fields");
-    return;
-  }
-
   const examId = "EXAM_" + Date.now();
 
   const data = {
     type: "CREATE_EXAM",
     examId: examId,
-    teacher: teacherEmail.value,
-    examName: examName.value,
-    duration: Number(duration.value),
+    teacher: document.getElementById("teacherEmail").value,
+    examName: document.getElementById("examName").value,
+    duration: document.getElementById("duration").value,
     maxTabSwitch: 2
   };
 
   fetch(API_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
     body: JSON.stringify(data)
   })
-  .then(res => res.text())
-  .then(text => {
-    console.log("RAW RESPONSE:", text);
-
-    const res = JSON.parse(text);
-
-    if (res.status === "EXAM_CREATED") {
-      // save examId for mcq builder
-      localStorage.setItem("EXAM_ID", examId);
-
-      document.getElementById("result").innerHTML =
-        "✅ Exam Created!<br><br>" +
-        "Student Exam Link:<br>" +
-        "<b>exam.html?examId=" + examId + "</b>";
-    } else {
-      document.getElementById("result").innerHTML =
-        "❌ Error: " + text;
-    }
-  })
-  .catch(err => {
+  .then(() => {
     document.getElementById("result").innerHTML =
-      "❌ Network error: " + err;
+      "✅ Exam Created!<br><br>" +
+      "Student Exam Link:<br>" +
+      `<b>exam.html?examId=${examId}</b>`;
   });
 }
 </script>
 
 </body>
 </html>
-
-
