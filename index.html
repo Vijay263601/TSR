@@ -5,6 +5,7 @@
   <style>
     body { font-family: Arial; padding: 30px; }
     input, button { padding: 10px; margin: 8px 0; width: 300px; }
+    button { cursor: pointer; }
   </style>
 </head>
 
@@ -14,7 +15,7 @@
 
 <input id="teacherEmail" placeholder="Teacher Email"><br>
 <input id="examName" placeholder="Exam Name"><br>
-<input id="duration" placeholder="Duration (minutes)"><br>
+<input id="duration" placeholder="Duration (minutes)" type="number"><br>
 
 <button onclick="createExam()">Create Exam</button>
 
@@ -24,27 +25,58 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbx2s8YFuy5Vrkzuh20cOLrNe7C4c3xsTVNTofJAxHp0ALfdXrRSVOvNMR3FH0tj4vdyhg/exec";
 
 function createExam() {
+
+  // ✅ validation
+  if (!teacherEmail.value || !examName.value || !duration.value) {
+    alert("Please fill all fields");
+    return;
+  }
+
   const examId = "EXAM_" + Date.now();
 
   const data = {
     type: "CREATE_EXAM",
     examId: examId,
-    teacher: document.getElementById("teacherEmail").value,
-    examName: document.getElementById("examName").value,
-    duration: document.getElementById("duration").value,
+    teacher: teacherEmail.value,
+    examName: examName.value,
+    duration: Number(duration.value),
     maxTabSwitch: 2
   };
 
   fetch(API_URL, {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
     body: JSON.stringify(data)
   })
-  .then(() => {
+  .then(res => res.json())
+  .then(res => {
+    if (res.status === "EXAM_CREATED") {
+
+      // ✅ store examId for mcq builder
+      localStorage.setItem("EXAM_ID", examId);
+
+      document.getElementById("result").innerHTML =
+        "✅ Exam Created Successfully!<br><br>" +
+        "<b>Exam ID:</b> " + examId + "<br><br>" +
+        "<b>Student Exam Link:</b><br>" +
+        `<b>exam.html?examId=${examId}</b><br><br>` +
+        `<button onclick="openMCQ()">➕ Open MCQ Builder</button>`;
+
+    } else {
+      document.getElementById("result").innerHTML =
+        "❌ Error creating exam";
+    }
+  })
+  .catch(err => {
     document.getElementById("result").innerHTML =
-      "✅ Exam Created!<br><br>" +
-      "Student Exam Link:<br>" +
-      `<b>exam.html?examId=${examId}</b>`;
+      "❌ Network error: " + err;
   });
+}
+
+function openMCQ() {
+  window.location.href = "mcq-builder.html";
 }
 </script>
 
