@@ -21,24 +21,32 @@
 <p id="msg"></p>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbxYWR5EYzUh6zyYsrKT7fP9PULQmReOOj69mqkOqz3SktwOtFzLAKxyygRbAfGdota3mg/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyZkAt1XgV91iaFu4aFUJ_YGMLK4k3J5nX0oDcN_aauEQMJojmkkKxEm-KxZ4tI1h6BsQ/exec";
 examId.value = localStorage.getItem("EXAM_ID");
 
 function add(){
   fetch(API_URL,{
     method:"POST",
+    headers:{ "Content-Type":"application/json" },
     body:JSON.stringify({
       type:"ADD_QUESTION",
       examId:examId.value,
       qid:"Q_"+Date.now(),
       question:q.value,
-      a:a.value,b:b.value,c:c.value,d:d.value,
+      a:a.value,
+      b:b.value,
+      c:c.value,
+      d:d.value,
       correct:correct.value
     })
-  }).then(r=>r.json()).then(()=>{
-    msg.textContent="Question added";
-    q.value=a.value=b.value=c.value=d.value="";
-    correct.value="";
+  })
+  .then(r=>r.json())
+  .then(res=>{
+    if(res.status==="QUESTION_ADDED"){
+      msg.textContent="✅ Question added";
+      q.value=a.value=b.value=c.value=d.value="";
+      correct.value="";
+    }
   });
 }
 </script>
