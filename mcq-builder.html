@@ -1,52 +1,135 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MCQ Builder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  font-family: Inter, Arial, sans-serif;
+  background: #f1f5f9;
+  margin: 0;
+  padding: 20px;
+}
+.container {
+  max-width: 700px;
+  margin: auto;
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+}
+label { font-weight: 600; margin-top: 12px; display: block; }
+input, textarea, select {
+  width: 100%;
+  padding: 12px;
+  margin-top: 6px;
+  border-radius: 8px;
+  border: 1px solid #cbd5f5;
+}
+.options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+button {
+  width: 100%;
+  margin-top: 20px;
+  padding: 14px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.status { text-align: center; margin-top: 15px; font-weight: 600; }
+.success { color: green; }
+.error { color: red; }
+</style>
+</head>
+
 <body>
 
-<h2>MCQ Builder</h2>
+<div class="container">
+  <h2>MCQ Builder</h2>
 
-<input id="examId" readonly><br>
-<textarea id="q" placeholder="Question"></textarea><br>
-<input id="a" placeholder="Option A"><br>
-<input id="b" placeholder="Option B"><br>
-<input id="c" placeholder="Option C"><br>
-<input id="d" placeholder="Option D"><br>
+  <label>Exam ID</label>
+  <input id="examId" readonly>
 
-<select id="correct">
-  <option value="">Correct</option>
-  <option>A</option><option>B</option>
-  <option>C</option><option>D</option>
-</select><br>
+  <label>Question</label>
+  <textarea id="question" rows="3"></textarea>
 
-<button onclick="add()">Add Question</button>
-<p id="msg"></p>
+  <div class="options">
+    <div><label>Option A</label><input id="a"></div>
+    <div><label>Option B</label><input id="b"></div>
+    <div><label>Option C</label><input id="c"></div>
+    <div><label>Option D</label><input id="d"></div>
+  </div>
+
+  <label>Correct Answer</label>
+  <select id="correct">
+    <option value="">Select</option>
+    <option value="A">Option A</option>
+    <option value="B">Option B</option>
+    <option value="C">Option C</option>
+    <option value="D">Option D</option>
+  </select>
+
+  <button onclick="addQuestion()">➕ Add Question</button>
+  <div id="status" class="status"></div>
+</div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbyZkAt1XgV91iaFu4aFUJ_YGMLK4k3J5nX0oDcN_aauEQMJojmkkKxEm-KxZ4tI1h6BsQ/exec";
-examId.value = localStorage.getItem("EXAM_ID");
+const API_URL = "https://script.google.com/macros/s/AKfycbx1tYQiWIeddqMwx6EMDCPugSqIVHxu78Ef5QrDn1sY01QeEAuqcyplKfmspSZP6Dr00w/exec";
 
-function add(){
-  fetch(API_URL,{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({
-      type:"ADD_QUESTION",
-      examId:examId.value,
-      qid:"Q_"+Date.now(),
-      question:q.value,
-      a:a.value,
-      b:b.value,
-      c:c.value,
-      d:d.value,
-      correct:correct.value
-    })
+// auto-load exam id
+examId.value = localStorage.getItem("EXAM_ID") || "";
+
+function addQuestion() {
+  const status = document.getElementById("status");
+
+  if (!examId.value || !question.value || !a.value || !b.value || !c.value || !d.value || !correct.value) {
+    status.textContent = "⚠ Please fill all fields";
+    status.className = "status error";
+    return;
+  }
+
+  const data = {
+    type: "ADD_QUESTION",
+    examId: examId.value,
+    qid: "Q_" + Date.now(),
+    question: question.value,
+    a: a.value,
+    b: b.value,
+    c: c.value,
+    d: d.value,
+    correct: correct.value
+  };
+
+  fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
   })
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.status==="QUESTION_ADDED"){
-      msg.textContent="✅ Question added";
-      q.value=a.value=b.value=c.value=d.value="";
-      correct.value="";
+  .then(res => res.json())
+  .then(res => {
+    if (res.status === "QUESTION_ADDED") {
+      status.textContent = "✅ Question added successfully";
+      status.className = "status success";
+      question.value = a.value = b.value = c.value = d.value = "";
+      correct.value = "";
+    } else {
+      status.textContent = "❌ Error adding question";
+      status.className = "status error";
     }
+  })
+  .catch(() => {
+    status.textContent = "❌ Network error";
+    status.className = "status error";
   });
 }
 </script>
