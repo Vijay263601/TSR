@@ -28,7 +28,7 @@
 <p id="result"></p>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycby24EphyIqV8uUky66ouA-Q-4Pnuhzdf2kFb1_vWEuyLClZEFAMlcT1enU-tTon61JL6w/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxRLlJQ0pGjtiN3BbTjt6S1SSWtruqXsPykZAEk0vpHUy7g2TdRMZfpfkX2X1_oSdWcuA/exec";
 
 function createExam() {
   if (!teacherEmail.value || !examName.value || !duration.value) {
@@ -52,11 +52,19 @@ function createExam() {
     body: JSON.stringify(data)
   })
   .then(r => r.json())
-  .then(res => {
-    if (res.status !== "EXAM_CREATED") {
-      alert("Error creating exam");
-      return;
-    }
+.then(res => {
+  console.log("API RESPONSE:", res);
+
+  if (res.status !== "EXAM_CREATED") {
+    alert("Error creating exam: " + JSON.stringify(res));
+    return;
+  }
+
+  localStorage.setItem("CURRENT_EXAM_ID", examId);
+  document.getElementById("result").innerHTML =
+    "✅ Exam Created<br>Exam ID: " + examId;
+});
+
 
     // ✅ Store examId for MCQ builder
     localStorage.setItem("CURRENT_EXAM_ID", examId);
@@ -73,3 +81,4 @@ function createExam() {
 
 </body>
 </html>
+
