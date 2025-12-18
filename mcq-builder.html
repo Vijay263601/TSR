@@ -6,84 +6,42 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-  body {
-    font-family: Inter, Arial, sans-serif;
-    background: #f1f5f9;
-    margin: 0;
-    padding: 20px;
-  }
-
-  .container {
-    max-width: 700px;
-    margin: auto;
-    background: #ffffff;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-  }
-
-  h2 {
-    text-align: center;
-    margin-bottom: 20px;
-    color: #0f172a;
-  }
-
-  label {
-    font-weight: 600;
-    margin-top: 12px;
-    display: block;
-    color: #334155;
-  }
-
-  input, textarea, select {
-    width: 100%;
-    padding: 12px;
-    margin-top: 6px;
-    border-radius: 8px;
-    border: 1px solid #cbd5f5;
-    font-size: 15px;
-  }
-
-  textarea {
-    resize: vertical;
-  }
-
-  .options {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  button {
-    width: 100%;
-    margin-top: 20px;
-    padding: 14px;
-    background: #2563eb;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  button:hover {
-    background: #1d4ed8;
-  }
-
-  .status {
-    text-align: center;
-    margin-top: 15px;
-    font-weight: 600;
-  }
-
-  .success {
-    color: green;
-  }
-
-  .error {
-    color: red;
-  }
+body {
+  font-family: Inter, Arial, sans-serif;
+  background: #f1f5f9;
+  padding: 20px;
+}
+.container {
+  max-width: 700px;
+  margin: auto;
+  background: #fff;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+}
+label { font-weight: 600; margin-top: 12px; display: block; }
+input, textarea, select {
+  width: 100%;
+  padding: 12px;
+  margin-top: 6px;
+  border-radius: 8px;
+  border: 1px solid #cbd5f5;
+}
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+button {
+  width: 100%;
+  margin-top: 20px;
+  padding: 14px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.status { text-align: center; margin-top: 15px; font-weight: 600; }
+.success { color: green; }
+.error { color: red; }
 </style>
 </head>
 
@@ -93,33 +51,21 @@
   <h2>MCQ Builder</h2>
 
   <label>Exam ID</label>
-  <input id="examId" placeholder="EXAM_123456">
+  <input id="examId" readonly>
 
   <label>Question</label>
-  <textarea id="question" rows="3" placeholder="Enter question here..."></textarea>
+  <textarea id="question" rows="3"></textarea>
 
   <div class="options">
-    <div>
-      <label>Option A</label>
-      <input id="a" placeholder="Option A">
-    </div>
-    <div>
-      <label>Option B</label>
-      <input id="b" placeholder="Option B">
-    </div>
-    <div>
-      <label>Option C</label>
-      <input id="c" placeholder="Option C">
-    </div>
-    <div>
-      <label>Option D</label>
-      <input id="d" placeholder="Option D">
-    </div>
+    <div><label>Option A</label><input id="a"></div>
+    <div><label>Option B</label><input id="b"></div>
+    <div><label>Option C</label><input id="c"></div>
+    <div><label>Option D</label><input id="d"></div>
   </div>
 
   <label>Correct Answer</label>
   <select id="correct">
-    <option value="">Select correct option</option>
+    <option value="">Select</option>
     <option value="A">Option A</option>
     <option value="B">Option B</option>
     <option value="C">Option C</option>
@@ -132,13 +78,21 @@
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbx1tYQiWIeddqMwx6EMDCPugSqIVHxu78Ef5QrDn1sY01QeEAuqcyplKfmspSZP6Dr00w/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycby24EphyIqV8uUky66ouA-Q-4Pnuhzdf2kFb1_vWEuyLClZEFAMlcT1enU-tTon61JL6w/exec";
+
+// ✅ Auto-load exam ID
+const savedExamId = localStorage.getItem("CURRENT_EXAM_ID");
+if (!savedExamId) {
+  alert("No exam found. Please create an exam first.");
+} else {
+  examId.value = savedExamId;
+}
 
 function addQuestion() {
   const status = document.getElementById("status");
 
-  if (!examId.value || !question.value || !a.value || !b.value || !c.value || !d.value || !correct.value) {
-    status.innerHTML = "⚠ Please fill all fields";
+  if (!question.value || !a.value || !b.value || !c.value || !d.value || !correct.value) {
+    status.textContent = "⚠ Please fill all fields";
     status.className = "status error";
     return;
   }
@@ -159,14 +113,21 @@ function addQuestion() {
     method: "POST",
     body: JSON.stringify(data)
   })
-  .then(() => {
-    status.innerHTML = "✅ Question added successfully";
+  .then(r => r.json())
+  .then(res => {
+    if (res.status !== "QUESTION_ADDED") {
+      status.textContent = "❌ Failed to add question";
+      status.className = "status error";
+      return;
+    }
+
+    status.textContent = "✅ Question added";
     status.className = "status success";
     question.value = a.value = b.value = c.value = d.value = "";
     correct.value = "";
   })
   .catch(() => {
-    status.innerHTML = "❌ Error adding question";
+    status.textContent = "❌ Network error";
     status.className = "status error";
   });
 }
