@@ -14,7 +14,7 @@ input{width:100%;padding:12px;margin:8px 0}
 .option.selected{background:#2563eb;color:#fff}
 button{padding:10px 16px;margin-top:10px}
 button:disabled{background:#ccc;cursor:not-allowed}
-.timer{color:red;font-weight:bold}
+.timer{color:red;font-weight:bold;float:right}
 </style>
 </head>
 
@@ -23,11 +23,11 @@ button:disabled{background:#ccc;cursor:not-allowed}
 <!-- STUDENT DETAILS -->
 <div class="container" id="studentForm">
   <h2>Student Details</h2>
-  <p><b>⚠ Fullscreen required. Switching apps, split screen or exit fullscreen will terminate exam.</b></p>
+  <p><b>⚠ Fullscreen is mandatory. Exiting fullscreen or switching tabs will auto-submit.</b></p>
   <input id="nameInput" placeholder="Full Name">
   <input id="emailInput" type="email" placeholder="Email">
   <input id="rollInput" placeholder="Roll Number">
-  <button id="startBtn" disabled onclick="startExam()">Start Exam</button>
+  <button id="startBtn" disabled>Start Exam</button>
 </div>
 
 <!-- EXAM PAGE -->
@@ -44,11 +44,12 @@ button:disabled{background:#ccc;cursor:not-allowed}
 </div>
 
 <script>
-/* CONFIG */
+/* ================= CONFIG ================= */
 const API_URL = "https://script.google.com/macros/s/AKfycbxZRWsYXHtlQLs3ucd1aScHN3oR5L3cMSnvuuuZ0GJ3-z2G7C8MJcA9Z15XYcYxib19Pw/exec";
 
-/* DOM */
+/* ================= DOM ================= */
 const examId = new URLSearchParams(location.search).get("examId");
+const examIdText = document.getElementById("examIdText");
 examIdText.textContent = examId;
 
 const studentForm = document.getElementById("studentForm");
@@ -61,17 +62,22 @@ const questionText = document.getElementById("questionText");
 const optionsDiv = document.getElementById("options");
 const timerEl = document.getElementById("timer");
 
-/* STATE */
-let questions=[], answers={}, current=0;
-let duration=0, MAX_TAB_SWITCH=2;
-let tabSwitch=0;
-let cheated=false, cheatReason="";
-let examStarted=false;   // 🔑 FIX
-let examFinished=false;
-let startTime, timerInterval;
-let w0=0, h0=0;
+/* ================= STATE ================= */
+let questions = [];
+let answers = {};
+let current = 0;
+let duration = 0;
+let MAX_TAB_SWITCH = 2;
+let tabSwitch = 0;
+let cheated = false;
+let cheatReason = "";
+let examStarted = false;
+let examFinished = false;
+let startTime;
+let timerInterval;
+let w0 = 0, h0 = 0;
 
-/* ENABLE START BUTTON */
+/* ================= VALIDATE DETAILS ================= */
 function validateDetails(){
   startBtn.disabled = !(
     nameInput.value.trim() &&
@@ -79,84 +85,123 @@ function validateDetails(){
     rollInput.value.trim()
   );
 }
-[nameInput,emailInput,rollInput].forEach(i=>i.addEventListener("input",validateDetails));
+[nameInput,emailInput,rollInput].forEach(i =>
+  i.addEventListener("input", validateDetails)
+);
 
-/* FULLSCREEN */
+/* ================= FULLSCREEN ================= */
 function enterFullscreen(){
-  return document.documentElement.requestFullscreen?.();
+  return document.documentElement.requestFullscreen();
 }
 
-/* START EXAM */
+/* ================= START EXAM ================= */
+startBtn.onclick = startExam;
+
 async function startExam(){
   try {
     await enterFullscreen();
   } catch {
-    alert("Fullscreen permission required");
+    alert("Fullscreen permission is required");
     return;
   }
 
-  // 🔑 exam officially starts HERE
   examStarted = true;
-
   studentForm.classList.add("hidden");
   examPage.classList.remove("hidden");
 
   w0 = innerWidth;
   h0 = innerHeight;
 
-  const [cfg, qs] = await Promise.all([
-    fetch(API_URL,{   method:"POST",   headers:{ "Content-Type":"application/json" },   body:JSON.stringify({ type:"GET_EXAM_CONFIG", examId }) })  fetch(API_URL,{   method:"POST",   headers:{ "Content-Type":"application/json" },   body:JSON.stringify({ type:"GET_QUESTIONS", examId }) }).then(r=>r.json()),
-    fetch(API_URL,{method:"POST",body:JSON.stringify({type:"GET_QUESTIONS",examId})}).then(r=>r.json())
-  ]);
+  try {
+    const [cfg, qs] = await Promise.all([
+      fetch(API_URL,{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ type:"GET_EXAM_CONFIG", examId })
+      }).then(r=>r.json()),
 
-  duration = cfg.duration;
-  MAX_TAB_SWITCH = cfg.maxTabSwitch;
-  questions = qs;
+      fetch(API_URL,{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ type:"GET_QUESTIONS", examId })
+      }).then(r=>r.json())
+    ]);
 
-  startTime = Date.now();
-  renderQuestion();
-  startTimer();
+    duration = cfg.duration;
+    MAX_TAB_SWITCH = cfg.maxTabSwitch;
+    questions = qs;
+
+    if(!questions.length){
+      alert("No questions found");
+      return;
+    }
+
+    startTime = Date.now();
+    renderQuestion();
+    startTimer();
+
+  } catch(err){
+    alert("Error starting exam");
+    console.error(err);
+  }
 }
 
-/* RENDER */
+/* ================= RENDER QUESTION ================= */
 function renderQuestion(){
   const q = questions[current];
-  if(!q) return;
   questionText.textContent = `Q${current+1}. ${q.question}`;
-  optionsDiv.innerHTML="";
+  optionsDiv.innerHTML = "";
+
   ["A","B","C","D"].forEach(opt=>{
-    const d=document.createElement("div");
-    d.className="option"+(answers[q.qid]===opt?" selected":"");
-    d.textContent=q[opt];
-    d.onclick=()=>{answers[q.qid]=opt;renderQuestion();}
+    const d = document.createElement("div");
+    d.className = "option" + (answers[q.qid] === opt ? " selected" : "");
+    d.textContent = q[opt];
+    d.onclick = ()=>{
+      answers[q.qid] = opt;
+      renderQuestion();
+    };
     optionsDiv.appendChild(d);
   });
 }
 
-/* NAV */
+/* ================= NAVIGATION ================= */
 function next(){
   if(!answers[questions[current].qid]){
-    alert("Please select an answer");
+    alert("Select an answer first");
     return;
   }
-  if(current<questions.length-1){current++;renderQuestion();}
+  if(current < questions.length - 1){
+    current++;
+    renderQuestion();
+  }
 }
-function prev(){ if(current>0){current--;renderQuestion();} }
 
-/* TIMER */
+function prev(){
+  if(current > 0){
+    current--;
+    renderQuestion();
+  }
+}
+
+/* ================= TIMER ================= */
 function startTimer(){
-  let t=duration*60;
-  timerInterval=setInterval(()=>{
-    timerEl.textContent=` | ${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`;
-    if(--t<0){cheatReason="Time up";submitExam();}
+  let t = duration * 60;
+  timerInterval = setInterval(()=>{
+    timerEl.textContent =
+      Math.floor(t/60) + ":" + String(t%60).padStart(2,"0");
+    if(--t < 0){
+      cheatReason = "Time up";
+      submitExam();
+    }
   },1000);
 }
 
-/* ===== ANTI-CHEAT (ONLY AFTER EXAM STARTS) ===== */
+/* ================= ANTI-CHEAT ================= */
 document.addEventListener("fullscreenchange",()=>{
   if(!examStarted || examFinished) return;
   if(!document.fullscreenElement){
-    cheated=true; cheatReason="Exited fullscreen";
+    cheated = true;
+    cheatReason = "Exited fullscreen";
     submitExam();
   }
 });
@@ -164,7 +209,8 @@ document.addEventListener("fullscreenchange",()=>{
 document.addEventListener("visibilitychange",()=>{
   if(!examStarted || examFinished || !document.hidden) return;
   if(++tabSwitch > MAX_TAB_SWITCH){
-    cheated=true; cheatReason="Tab switch";
+    cheated = true;
+    cheatReason = "Tab switch";
     submitExam();
   }
 });
@@ -172,48 +218,48 @@ document.addEventListener("visibilitychange",()=>{
 window.addEventListener("resize",()=>{
   if(!examStarted || examFinished) return;
   if(Math.abs(innerWidth-w0)>100 || Math.abs(innerHeight-h0)>100){
-    cheated=true; cheatReason="Split screen detected";
+    cheated = true;
+    cheatReason = "Split screen detected";
     submitExam();
   }
 });
 
-/* SUBMIT */
+/* ================= SUBMIT ================= */
 function submitExam(){
-  if(!examStarted || examFinished) return;
+  if(examFinished) return;
 
   for(let i=0;i<questions.length;i++){
     if(!answers[questions[i].qid]){
       alert(`Question ${i+1} not answered`);
-      current=i;
+      current = i;
       renderQuestion();
       return;
     }
   }
 
-  examFinished=true;
+  examFinished = true;
   clearInterval(timerInterval);
 
-fetch(API_URL,{
-  method:"POST",
-  headers:{
-    "Content-Type":"application/json"
-  },
-  body:JSON.stringify({
-    type:"SUBMIT_RESPONSE",
-    examId: examId,
-    studentName: nameInput.value,
-    roll: rollInput.value,
-    email: emailInput.value,
-    cheated: cheated,
-    cheatReason: cheatReason,
-    timeTaken: Math.floor((Date.now()-startTime)/1000),
-    answers: Object.keys(answers).map(qid => ({
-      qid: qid,
-      answer: answers[qid]
-    }))
-  })
-}).then(()=>{
-    document.body.innerHTML="<h2 style='text-align:center'>Exam Submitted Successfully</h2>";
+  fetch(API_URL,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      type:"SUBMIT_RESPONSE",
+      examId,
+      studentName: nameInput.value,
+      roll: rollInput.value,
+      email: emailInput.value,
+      cheated,
+      cheatReason,
+      timeTaken: Math.floor((Date.now()-startTime)/1000),
+      answers: Object.keys(answers).map(qid=>({
+        qid,
+        answer: answers[qid]
+      }))
+    })
+  }).then(()=>{
+    document.body.innerHTML =
+      "<h2 style='text-align:center'>✅ Exam Submitted Successfully</h2>";
     document.exitFullscreen?.();
   });
 }
